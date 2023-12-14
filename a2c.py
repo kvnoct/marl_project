@@ -24,7 +24,7 @@ class A2C:
         self.agent_id = agent_id
         self.obs_size = flatdim(obs_space)
         self.action_size = flatdim(action_space)
-        print(self.action_size)
+        
         self.obs_space = obs_space
         self.action_space = action_space
 
@@ -83,7 +83,7 @@ class A2C:
 
         obs_shape = self.storage.obs.size()[2:]
         action_shape = self.storage.actions.size()[-1]
-        print(action_shape)
+        
         num_steps, num_processes, _ = self.storage.rewards.size()
 
         
