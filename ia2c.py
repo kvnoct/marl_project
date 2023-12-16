@@ -6,7 +6,7 @@ from torch import nn
 import os
 import torch
 
-class A2C:
+class IA2C:
     def __init__(
         self,
         agent_id,
@@ -76,7 +76,6 @@ class A2C:
         storages,
         value_loss_coef = 0.5,
         entropy_coef = 0.01,
-        seac_coef = 1,
         max_grad_norm = 0.5,
         device = 'cpu',
     ):
@@ -101,43 +100,12 @@ class A2C:
         value_loss = advantages.pow(2).mean()
 
 
-        # calculate prediction loss for the OTHER actor
-        other_agent_ids = [x for x in range(len(storages)) if x != self.agent_id]
-        seac_policy_loss = 0
-        seac_value_loss = 0
-        for oid in other_agent_ids:
-
-            other_values, logp, _ = self.model.evaluate_actions(
-                storages[oid].obs[:-1].view(-1, *obs_shape),
-                storages[oid].actions.view(-1, action_shape),
-            )
-            other_values = other_values.view(num_steps, num_processes, 1)
-            logp = logp.view(num_steps, num_processes, 1)
-            other_advantage = (
-                storages[oid].returns[:-1] - other_values
-            )  # or storages[oid].rewards
-
-            importance_sampling = (
-                logp.exp() / (storages[oid].action_log_probs.exp() + 1e-7)
-            ).detach()
-            
-            
-            
-            # importance_sampling = 1.0
-            seac_value_loss += (
-                importance_sampling * other_advantage.pow(2)
-            ).mean()
-            seac_policy_loss += (
-                -importance_sampling * logp * other_advantage.detach()
-            ).mean()
 
         self.optimizer.zero_grad()
         (
             policy_loss
             + value_loss_coef * value_loss
             - entropy_coef * dist_entropy
-            + seac_coef * seac_policy_loss
-            + seac_coef * value_loss_coef * seac_value_loss
         ).backward()
 
         nn.utils.clip_grad_norm_(self.model.parameters(), max_grad_norm)
@@ -148,9 +116,4 @@ class A2C:
             "policy_loss": policy_loss.item(),
             "value_loss": value_loss_coef * value_loss.item(),
             "dist_entropy": entropy_coef * dist_entropy.item(),
-            "importance_sampling": importance_sampling.mean().item(),
-            "seac_policy_loss": seac_coef * seac_policy_loss.item(),
-            "seac_value_loss": seac_coef
-            * value_loss_coef
-            * seac_value_loss.item(),
         }

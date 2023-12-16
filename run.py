@@ -1,5 +1,6 @@
 import gym
 from a2c import A2C
+from ia2c import IA2C
 import torch
 import os 
 from torch.utils.tensorboard import SummaryWriter
@@ -26,6 +27,8 @@ def get_args():
     parser.add_argument('--adam-eps', type = float, default = 1e-3)
     parser.add_argument('--total-timesteps', type = int, default = 1000000)
     parser.add_argument('--n-steps', type = int, default = 5)
+    
+    parser.add_argument('--agent-type', type = str, choices = ['A2C', 'IA2C'])
 
     args = parser.parse_args()
     return args
@@ -49,20 +52,43 @@ def main(args = get_args()):
 
     if os.path.isdir(f"{args.model_save_path}") == False:
         os.mkdir(f"{args.model_save_path}")
+    
+    if os.path.isdir(f"{args.log_path}/{args.map_size}-{args.num_agent}") == False:
+        os.mkdir(f"{args.log_path}/{args.map_size}-{args.num_agent}")
+        
+    if os.path.isdir(f"{args.model_save_path}/{args.map_size}-{args.num_agent}") == False:
+        os.mkdir(f"{args.model_save_path}/{args.map_size}-{args.num_agent}")
+    
+    if os.path.isdir(f"{args.log_path}/{args.map_size}-{args.num_agent}/{args.agent_type}") == False:
+        os.mkdir(f"{args.log_path}/{args.map_size}-{args.num_agent}/{args.agent_type}")
+        
+    if os.path.isdir(f"{args.model_save_path}/{args.map_size}-{args.num_agent}/{args.agent_type}") == False:
+        os.mkdir(f"{args.model_save_path}/{args.map_size}-{args.num_agent}/{args.agent_type}")
+        
+        
 
     env = make_env(args)
-    writer = SummaryWriter(f"{args.log_path}/run_{args.seed}")
+    writer = SummaryWriter(f"{args.log_path}/{args.map_size}-{args.num_agent}/{args.agent_type}/run_{args.seed}")
 
     obs_space = env.observation_space
     action_space = env.action_space
 
-    agents = [A2C(i, obs_space, action_space,
-                  num_steps = args.n_steps,
-                  lr = args.lr,
-                  gamma = args.gamma,
-                  use_gae = args.use_gae,
-                  gae_lambda = args.gae_lambda,
-                  adam_eps = args.adam_eps) for i in range(env.n_agents)]
+    if args.agent_type == 'A2C':
+        agents = [A2C(i, obs_space, action_space,
+                    num_steps = args.n_steps,
+                    lr = args.lr,
+                    gamma = args.gamma,
+                    use_gae = args.use_gae,
+                    gae_lambda = args.gae_lambda,
+                    adam_eps = args.adam_eps) for i in range(env.n_agents)]
+    elif args.agent_type == 'IA2C':
+        agents = [IA2C(i, obs_space, action_space,
+                    num_steps = args.n_steps,
+                    lr = args.lr,
+                    gamma = args.gamma,
+                    use_gae = args.use_gae,
+                    gae_lambda = args.gae_lambda,
+                    adam_eps = args.adam_eps) for i in range(env.n_agents)]
 
     #Episode is finished
     obs = env.reset()
@@ -79,7 +105,7 @@ def main(args = get_args()):
     t = 0
     for j in range(total_updates):
         #N-steps rollout
-        env.render()
+        # env.render()
         for _ in range(args.n_steps):
             t += 1
 
@@ -125,7 +151,7 @@ def main(args = get_args()):
 
     #save model
     for agent in agents:
-        torch.save(agent.model, f"{args.model_save_path}/model_agent{agent.agent_id}.pt")
+        torch.save(agent.model, f"{args.model_save_path}/{args.map_size}-{args.num_agent}/{args.agent_type}/model_agent{agent.agent_id}_seed{args.seed}.pt")
 
     env.close()
 
